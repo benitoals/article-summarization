@@ -55,7 +55,7 @@ def debug_dataset(dataset_repo_id="benitoals/my-txt-dataset", num_samples=5):
 from datasets import load_dataset
 from transformers import AutoTokenizer
 
-def search_extremes_in_dataset(dataset_repo_id="benitoals/my-txt-dataset", body_key="body", summary_key="summary", num_extremes=10):
+def search_extremes_in_dataset(dataset_repo_id="benitoals/my-txt-dataset", body_key="body", summary_key="summary", num_extremes=3):
     """
     Loads the dataset from Hugging Face Hub, computes token counts for the body and summary using the specified tokenizer,
     and prints the top 'num_extremes' examples with highest and lowest token counts.
