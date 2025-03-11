@@ -21,15 +21,23 @@ from peft import LoraConfig, TaskType, get_peft_model, PeftModel
 #                           Summarization Functions
 #############################################################################
 
+def clean_text(text):
+    """Remove unwanted special tokens from text."""
+    return text.replace("<extra_id_0>", "").strip()
+
 def preprocess_function(examples, tokenizer, body_key, summary_key, max_input_len=512, max_target_len=256, chunk_overlap=50):
-    """Prepares dataset: Tokenizes input with chunking and truncates summary."""
+    """Prepares dataset: Tokenizes input with chunking and cleans target summaries."""
     chunked_inputs = []
     chunked_summaries = []
 
     for body_text, summary_text in zip(examples[body_key], examples[summary_key]):
+        # Skip if summary is too short
         if len(summary_text.split()) < 50:
-            continue  
+            continue
 
+        # Clean the summary text to remove unwanted tokens
+        summary_text = clean_text(summary_text)
+        
         tokenized_body = tokenizer(body_text, truncation=False)["input_ids"]
         body_chunks = [
             tokenized_body[i : i + max_input_len]
@@ -44,12 +52,15 @@ def preprocess_function(examples, tokenizer, body_key, summary_key, max_input_le
     return {"input_ids": chunked_inputs, "labels": chunked_summaries}
 
 def get_rouge_scores(model, dataset, tokenizer, device, body_key="body", summary_key="summary", max_length=128, num_beams=4):
-    """Evaluate a model by generating summaries from 'body_key' and comparing with 'summary_key'.
-       Also prints a few debug examples."""
+    """Evaluate a model by generating summaries and comparing with reference summaries.
+       Uses bad_words_ids to prevent generation of <extra_id_0>."""
     debug = True
-
     rouge = evaluate.load("rouge")
     preds, refs = [], []
+    
+    # Get the token id for <extra_id_0>
+    bad_token_id = tokenizer.convert_tokens_to_ids("<extra_id_0>")
+    bad_words = [[bad_token_id]]
 
     for i, ex in enumerate(dataset):
         body_text = ex[body_key]
@@ -65,11 +76,12 @@ def get_rouge_scores(model, dataset, tokenizer, device, body_key="body", summary
             max_length=max_length,
             num_beams=num_beams,
             early_stopping=True,
-            no_repeat_ngram_size=3,  # Avoid repeated words
-            do_sample=False,         # Deterministic generation
+            no_repeat_ngram_size=3,
+            do_sample=False,
             temperature=1.0,
             top_k=50,
-            top_p=0.95
+            top_p=0.95,
+            bad_words_ids=bad_words  # Prevent generating <extra_id_0>
         )
         pred_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
         preds.append(pred_text)
@@ -97,8 +109,8 @@ def train_lora(base_model, dataset, tokenizer, model_repo_id,
                body_key="body", summary_key="summary", 
                num_epochs=2, learning_rate=1e-4, skip_if_hf_exists=True,
                freeze_base=False):
-    """Fine-tunes a model using LoRA, checks HF repo to skip training if already exists,
-       and optionally freezes the base model parameters (non-adapter) before training."""
+    """Fine-tunes a model using LoRA and optionally freezes base parameters.
+       Also checks HF repo to skip training if adapter exists."""
     device = torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
 
     # Check if model exists on Hugging Face
@@ -125,7 +137,7 @@ def train_lora(base_model, dataset, tokenizer, model_repo_id,
         target_modules=["q", "v"]
     )
     lora_model = get_peft_model(base_model, peft_config).to(device)
-    
+
     # If freeze_base is True, freeze all parameters except those related to LoRA
     if freeze_base:
         for name, param in lora_model.named_parameters():
@@ -230,9 +242,9 @@ def main():
     # Define dataset and model repository IDs
     dataset_repo_id = "benitoals/my-txt-dataset"
     model_name = "google/mt5-small"
-    local_model_repo_id = "benitoals/my-lora-local"
-    hf_model_repo_id = "benitoals/my-lora-hf"
-    combined_repo_id = "benitoals/my-lora-local-combined"
+    local_model_repo_id = "benitoals/my-lora-sum"
+    hf_model_repo_id = "benitoals/my-lora-hf-sum"
+    combined_repo_id = "benitoals/my-lora-local-combined-sum"
 
     # Load tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True, legacy=False)
@@ -275,7 +287,7 @@ def main():
     print(hf_on_local_rouge)
 
     # Step 4: Fine-tune HF model on local dataset
-    # Here we freeze the base (from previous training) and train only the new LoRA adapter
+    # Freeze the base (from previous training) and train only the new LoRA adapter
     final_model = train_lora(hf_trained_model, local_data, tokenizer, combined_repo_id, freeze_base=True)
     final_rouge = get_rouge_scores(final_model, local_data["test"] if isinstance(local_data, dict) else local_data, tokenizer, device)
     print("\n=== Final Model (HF + Local) ===")

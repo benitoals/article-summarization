@@ -21,15 +21,21 @@ from peft import LoraConfig, TaskType, get_peft_model, PeftModel
 #                           Summarization Functions
 #############################################################################
 
+def clean_text(text):
+    """Remove unwanted special tokens from text."""
+    return text.replace("<extra_id_0>", "").strip()
+
 def preprocess_function(examples, tokenizer, body_key, summary_key, max_input_len=512, max_target_len=256, chunk_overlap=50):
-    """Prepares dataset: Tokenizes input with chunking and truncates summary."""
+    """Prepares dataset: Tokenizes input with chunking and cleans target summaries."""
     chunked_inputs = []
     chunked_summaries = []
 
-    for body_text, summary_text in zip(examples[body_key], examples[summary_key]):
+    for body_text, summary_text in zip(examples[body_key], examples[summary_key]):        # Skip if summary is too short
         if len(summary_text.split()) < 50:
-            continue  
+            continue
 
+        # Clean the summary text to remove unwanted tokens
+        summary_text = clean_text(summary_text)
         tokenized_body = tokenizer(body_text, truncation=False)["input_ids"]
         body_chunks = [
             tokenized_body[i : i + max_input_len]
@@ -44,12 +50,16 @@ def preprocess_function(examples, tokenizer, body_key, summary_key, max_input_le
     return {"input_ids": chunked_inputs, "labels": chunked_summaries}
 
 def get_rouge_scores(model, dataset, tokenizer, device, body_key="body", summary_key="summary", max_length=128, num_beams=4):
-    """Evaluate a model by generating summaries from 'body_key' and comparing with 'summary_key'.
-       If debug=True, prints a few examples of predicted summaries."""
+    """Evaluate a model by generating summaries and comparing with reference summaries.
+       Uses bad_words_ids to prevent generation of <extra_id_0>."""
     debug = True
 
     rouge = evaluate.load("rouge")
     preds, refs = [], []
+    
+    # Get the token id for <extra_id_0>
+    bad_token_id = tokenizer.convert_tokens_to_ids("<extra_id_0>")
+    bad_words = [[bad_token_id]]
 
     for i, ex in enumerate(dataset):
         body_text = ex[body_key]
@@ -70,6 +80,7 @@ def get_rouge_scores(model, dataset, tokenizer, device, body_key="body", summary
             temperature=1.0,  # Ensure stable output
             top_k=50,  # Prevent degenerate outputs
             top_p=0.95  # Ensure diverse summaries
+            bad_words_ids=bad_words 
         )
         pred_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
         preds.append(pred_text)
@@ -236,9 +247,9 @@ def main():
     # Define dataset and model repository IDs
     dataset_repo_id = "benitoals/my-txt-dataset"
     model_name = "google/mt5-small"
-    local_model_repo_id = "benitoals/my-lora-sum"
-    hf_model_repo_id = "benitoals/my-lora-hf-sum"
-    combined_repo_id = "benitoals/my-lora-local-combined-sum"
+    local_model_repo_id = "benitoals/my-lora"
+    hf_model_repo_id = "benitoals/my-lora-hf"
+    combined_repo_id = "benitoals/my-lora-local-combined"
 
     # Load tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True, legacy=False)
