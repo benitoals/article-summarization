@@ -49,7 +49,7 @@ def preprocess_function(examples, tokenizer, body_key, summary_key, max_input_le
 
     return {"input_ids": chunked_inputs, "labels": chunked_summaries}
 
-def get_rouge_scores(model, dataset, tokenizer, device, body_key="body", summary_key="summary", max_length=128, num_beams=4):
+def get_rouge_scores(model, dataset, tokenizer, device, body_key="body", summary_key="summary", max_length=128, num_beams=3):
     """Evaluate a model by generating summaries and comparing with reference summaries.
        Uses bad_words_ids to prevent generation of <extra_id_0>."""
     debug = True
@@ -76,8 +76,8 @@ def get_rouge_scores(model, dataset, tokenizer, device, body_key="body", summary
             num_beams=num_beams,
             early_stopping=True,
             no_repeat_ngram_size=3,  # Avoid repeated words
-            do_sample=False,  # Use deterministic generation
-            temperature=1.0,  # Ensure stable output
+            do_sample=True,  # Use deterministic generation
+            temperature=0.7,  # Ensure stable output
             top_k=50,  # Prevent degenerate outputs
             top_p=0.95, # Ensure diverse summaries
             bad_words_ids=bad_words 
@@ -108,7 +108,7 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
 
 def train_lora(base_model, dataset, tokenizer, model_repo_id, 
                body_key="body", summary_key="summary", 
-               num_epochs=2, learning_rate=1e-4, skip_if_hf_exists=True,
+               num_epochs=4, learning_rate=1e-4, skip_if_hf_exists=True,
                freeze_base=False):
     """Fine-tunes a model using LoRA, checks HF repo to skip training if already exists,
        and optionally freezes the base model parameters (non-adapter) before training."""
