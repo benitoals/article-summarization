@@ -15,7 +15,7 @@ from transformers import (
 from huggingface_hub import HfApi
 from huggingface_hub.utils import RepositoryNotFoundError
 from peft import LoraConfig, TaskType, get_peft_model, PeftModel
-# Removed extra TensorBoard SummaryWriter since Trainer logs to TensorBoard automatically
+# TensorBoard logging is handled by Trainer's "report_to" argument
 
 #############################################################################
 #                           Summarization Functions
@@ -43,11 +43,9 @@ def preprocess_function(examples, tokenizer, body_key, summary_key, max_input_le
 
     return {"input_ids": chunked_inputs, "labels": chunked_summaries}
 
-def get_rouge_scores(model, dataset, tokenizer, device, body_key="body", summary_key="summary", max_length=128, num_beams=4):
+def get_rouge_scores(model, dataset, tokenizer, device, body_key="body", summary_key="summary", max_length=128, num_beams=4, debug=False):
     """Evaluate a model by generating summaries from 'body_key' and comparing with 'summary_key'.
        If debug=True, prints a few examples of predicted summaries."""
-    debug = True
-
     rouge = evaluate.load("rouge")
     preds, refs = [], []
 
@@ -66,10 +64,10 @@ def get_rouge_scores(model, dataset, tokenizer, device, body_key="body", summary
             num_beams=num_beams,
             early_stopping=True,
             no_repeat_ngram_size=3,  # Avoid repeated words
-            do_sample=False,  # Use deterministic generation
-            temperature=1.0,  # Ensure stable output
-            top_k=50,  # Prevent degenerate outputs
-            top_p=0.95  # Ensure diverse summaries
+            do_sample=False,         # Deterministic generation
+            temperature=1.0,
+            top_k=50,
+            top_p=0.95
         )
         pred_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
         preds.append(pred_text)
@@ -84,7 +82,7 @@ def get_rouge_scores(model, dataset, tokenizer, device, body_key="body", summary
             print("-" * 50)
 
     result = rouge.compute(predictions=preds, references=refs)
-    # Convert floats to percentages if needed
+    # Convert values to percentages if needed
     if isinstance(result["rouge1"], float):
         return {k: v * 100 for k, v in result.items()}
     return {k: v.mid.fmeasure * 100 for k, v in result.items()}
@@ -107,10 +105,9 @@ def train_lora(base_model, dataset, tokenizer, model_repo_id,
         info = api.repo_info(model_repo_id, repo_type="model")
         print(f"\n[Skipping Training?] {model_repo_id} found on HF. Checking for adapter config...")
         
-        # This will try to load the adapter config and weights.
         loaded_lora_model = PeftModel.from_pretrained(base_model, model_repo_id)
         print("\n=== LoRA Model Successfully Loaded ===")
-        # print(loaded_lora_model)  # Debug info
+        print(loaded_lora_model)  # Debug info
         print(f"Found LoRA adapter in {model_repo_id}, skipping training.")
         
         loaded_lora_model.to(device)
@@ -140,7 +137,7 @@ def train_lora(base_model, dataset, tokenizer, model_repo_id,
         eval_ds = eval_test["train"]
         test_ds = eval_test["test"]
 
-    # Tokenize each split separately using their own column names
+    # Tokenize each split separately using its own column names
     def tokenize_dataset(ds):
         return ds.map(lambda x: preprocess_function(x, tokenizer, body_key, summary_key),
                       batched=True,
@@ -159,7 +156,6 @@ def train_lora(base_model, dataset, tokenizer, model_repo_id,
         preds, labels = eval_preds
         if isinstance(preds, tuple):
             preds = preds[0]
-        # Fix shape issues
         if preds.ndim == 3 and preds.shape[1] == 1:
             preds = np.squeeze(preds, axis=1)
         if labels.ndim == 3 and labels.shape[1] == 1:
@@ -210,7 +206,6 @@ def train_lora(base_model, dataset, tokenizer, model_repo_id,
     trainer.train()
     print("=== LoRA Fine-tuning complete ===")
 
-    # Save LoRA weights locally and push to Hugging Face
     trainer.save_model()
     lora_model.save_pretrained(training_args.output_dir)
 
@@ -245,13 +240,12 @@ def main():
     else:
         print(f"Filtered dataset size: {len(local_data)}")
 
-    device = torch.device("cuda" if torch.cuda.is_available() 
-                              else ("mps" if torch.backends.mps.is_available() else "cpu"))
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Step 1: Baseline (Pretrained model tested on local dataset)
     baseline_model = AutoModelForSeq2SeqLM.from_pretrained(model_name).to(device)
-    baseline_rouge = get_rouge_scores(baseline_model, local_data["test"] if isinstance(local_data, dict) else local_data, tokenizer, device)
-    print("\n=== Baseline (Pretrained Model) Results ===")
+    print("\n=== Baseline (Pretrained Model) Results with Debug ===")
+    baseline_rouge = get_rouge_scores(baseline_model, local_data["test"] if isinstance(local_data, dict) else local_data, tokenizer, device, debug=True)
     print(baseline_rouge)
 
     # Step 2: Train LoRA on local dataset
