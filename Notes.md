@@ -24,3 +24,50 @@ Reference Summary: This article proposes a novel moving target defense (MTD) str
 2) LoRA on Local Dataset            => {'rouge1': np.float64(21.31466789375662), 'rouge2': np.float64(4.293126888205344), 'rougeL': np.float64(11.594329113813176), 'rougeLsum': np.float64(11.558987333935299)}
 3) LoRA on HF Dataset               => {'rouge1': np.float64(19.881724986527278), 'rouge2': np.float64(2.5562797012453835), 'rougeL': np.float64(13.16161974619779), 'rougeLsum': np.float64(13.298388820716106)}
 4) Fine-tuned HF + Local Model      => {'rouge1': np.float64(23.756683347976633), 'rouge2': np.float64(4.026777692110272), 'rougeL': np.float64(13.063501783652884), 'rougeLsum': np.float64(13.181579754281355)}
+
+
+Below is a table summarizing and comparing the evaluation results for each experiment:
+
+Model	ROUGE-1	ROUGE-2	ROUGE-L	ROUGE-Lsum
+Baseline (Pretrained Model)	0.41	0.12	0.41	0.41
+LoRA on Local Dataset	21.31	4.29	11.59	11.56
+LoRA on HF Dataset	19.88	2.56	13.16	13.30
+Fine-tuned HF + Local Model	23.76	4.03	13.06	13.18
+
+Note: The values are rounded to two decimal places for clarity.
+This table shows that the pretrained baseline performs very poorly compared to fine‑tuned models, with the best performance achieved by the combined fine‑tuning (HF + Local).
+
+Here’s an explanation of the results:
+	1.	Baseline (Pretrained Model):
+	•	ROUGE Scores: The baseline shows very low ROUGE values (around 0.41 for ROUGE-1 and ROUGE-L, and 0.12 for ROUGE-2).
+	•	Interpretation:
+	•	This indicates that without any fine‑tuning, the pretrained model generates summaries that barely overlap with the reference summaries.
+	•	The model, as pretrained, isn’t well-adapted for your specific summarization task or domain.
+	2.	LoRA on Local Dataset:
+	•	ROUGE Scores: ROUGE-1 jumps to 21.31, ROUGE-2 to 4.29, and ROUGE-L / ROUGE-Lsum to around 11.59.
+	•	Interpretation:
+	•	Fine‑tuning the model using a LoRA adapter on your local dataset significantly improves performance.
+	•	The improvement suggests that even a relatively small local dataset can effectively adjust the model’s summarization capabilities for your domain.
+	3.	LoRA on HF Dataset:
+	•	ROUGE Scores: ROUGE-1 is 19.88, ROUGE-2 drops to 2.56, but ROUGE-L and ROUGE-Lsum increase to around 13.16 and 13.30 respectively.
+	•	Interpretation:
+	•	Training on the larger HF dataset (which is likely from a different domain) results in decent overall overlap in longer spans (as indicated by ROUGE-L and ROUGE-Lsum), but the lower ROUGE-2 suggests that the precision of 2-gram overlaps is reduced.
+	•	This outcome may be due to a domain mismatch—the HF dataset may not perfectly align with your local dataset’s style or content.
+	4.	Fine-tuned HF + Local Model:
+	•	ROUGE Scores: The combined fine‑tuning achieves the best ROUGE-1 (23.76) and competitive ROUGE-2 (4.03) and ROUGE-L/ROUGE-Lsum (around 13.06–13.18).
+	•	Interpretation:
+	•	This final stage uses a model initially fine‑tuned on the HF dataset and then further fine‑tuned on your local data (with the base frozen so that only the adapter is updated).
+	•	The combination allows the model to leverage the general patterns learned from the larger HF dataset while adapting to the specific characteristics of your local domain.
+	•	The result is the best overall performance among the tested configurations, as measured by ROUGE-1 and good performance on ROUGE-L and ROUGE-Lsum, indicating improved content and fluency in the summaries.
+
+Overall Conclusions
+	•	Importance of Fine‑Tuning:
+The very low scores of the baseline model highlight that a pretrained model must be fine‑tuned for effective summarization on your specific dataset.
+	•	Domain Adaptation Matters:
+Fine‑tuning on your local dataset yields significant improvements, but combining training on a larger (HF) dataset followed by fine‑tuning on local data provides the best performance. This suggests that leveraging broader knowledge from the HF dataset, even if it’s slightly mismatched, can be beneficial when later refined with domain-specific data.
+	•	Metric Differences:
+	•	ROUGE-1 (unigram overlap) increases the most in the combined model, indicating better overall content match.
+	•	ROUGE-2 (bigram overlap) is relatively low in the HF-only model but improves when combined with local data.
+	•	ROUGE-L/ROUGE-Lsum (longest common subsequence) being higher in the HF and combined models suggests that the generated summaries capture longer, more coherent segments of the reference summaries.
+
+These results collectively indicate that a two-stage fine‑tuning process (first on a large, general dataset, then on a small, local dataset with only the adapter updated) yields the best summarization performance for your task.
