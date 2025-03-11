@@ -79,7 +79,7 @@ def get_rouge_scores(model, dataset, tokenizer, device, body_key="body", summary
             do_sample=False,  # Use deterministic generation
             temperature=1.0,  # Ensure stable output
             top_k=50,  # Prevent degenerate outputs
-            top_p=0.95  # Ensure diverse summaries
+            top_p=0.95, # Ensure diverse summaries
             bad_words_ids=bad_words 
         )
         pred_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
