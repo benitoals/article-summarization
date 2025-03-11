@@ -227,9 +227,9 @@ def main():
     # Define dataset and model repository IDs
     dataset_repo_id = "benitoals/my-txt-dataset"
     model_name = "google/mt5-small"
-    local_model_repo_id = "benitoals/my-lora-local"
-    hf_model_repo_id = "benitoals/my-lora-hf"
-    combined_repo_id = "benitoals/my-lora-local-combined"
+    local_model_repo_id = "benitoals/my-lora-sum"
+    hf_model_repo_id = "benitoals/my-lora-hf-sum"
+    combined_repo_id = "benitoals/my-lora-local-combined-sum"
 
     # Load tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True, legacy=False)
