@@ -97,8 +97,10 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
 
 def train_lora(base_model, dataset, tokenizer, model_repo_id, 
                body_key="body", summary_key="summary", 
-               num_epochs=2, learning_rate=1e-4, skip_if_hf_exists=True):
-    """Fine-tunes a model using LoRA, checks HF repo to skip training if already exists, and logs to TensorBoard."""
+               num_epochs=2, learning_rate=1e-4, skip_if_hf_exists=True,
+               freeze_base=False):
+    """Fine-tunes a model using LoRA, checks HF repo to skip training if already exists,
+       and optionally freezes the base model parameters (non-adapter) before training."""
     device = torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
 
     # Check if model exists on Hugging Face
@@ -127,6 +129,13 @@ def train_lora(base_model, dataset, tokenizer, model_repo_id,
         target_modules=["q", "v"]
     )
     lora_model = get_peft_model(base_model, peft_config).to(device)
+
+    # If freeze_base is True, freeze all parameters except those related to LoRA
+    if freeze_base:
+        for name, param in lora_model.named_parameters():
+            if "lora_" not in name:
+                param.requires_grad = False
+        print("Base model parameters frozen. Only LoRA adapter parameters will be updated.")
 
     # Handle dataset splits: if dataset is not a dict, create splits
     if isinstance(dataset, dict):
@@ -272,7 +281,8 @@ def main():
     print(hf_on_local_rouge)
 
     # Step 4: Fine-tune HF model on local dataset
-    final_model = train_lora(hf_trained_model, local_data, tokenizer, combined_repo_id)
+    # Here we freeze the base (from previous training) and train only the new LoRA adapter
+    final_model = train_lora(hf_trained_model, local_data, tokenizer, combined_repo_id, freeze_base=True)
     final_rouge = get_rouge_scores(final_model, local_data["test"] if isinstance(local_data, dict) else local_data, tokenizer, device)
     print("\n=== Final Model (HF + Local) ===")
     print(final_rouge)
