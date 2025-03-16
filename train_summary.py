@@ -25,6 +25,11 @@ def clean_text(text):
     """Remove unwanted special tokens from text."""
     return text.replace("<extra_id_0>", "").strip()
 
+def post_process_generated_text(text):
+    """Post-process generated text to remove unwanted tokens and extra whitespace."""
+    text = text.replace("<extra_id_0>", "").strip()
+    return " ".join(text.split())
+
 def preprocess_function(examples, tokenizer, body_key, summary_key, max_input_len=512, max_target_len=256, chunk_overlap=50):
     """Prepares dataset: Tokenizes input with chunking and cleans target summaries."""
     chunked_inputs = []
@@ -76,13 +81,15 @@ def get_rouge_scores(model, dataset, tokenizer, device, body_key="body", summary
             num_beams=num_beams,
             early_stopping=True,
             no_repeat_ngram_size=3,  # Avoid repeated words
-            do_sample=True,  # Use deterministic generation
+            do_sample=False,  # Use deterministic generation
             temperature=0.7,  # Ensure stable output
             top_k=50,  # Prevent degenerate outputs
             top_p=0.95, # Ensure diverse summaries
             bad_words_ids=bad_words 
         )
         pred_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        pred_text = post_process_generated_text(pred_text)
+        pred_text = post_process_generated_text(pred_text)
         preds.append(pred_text)
         refs.append(ref_text)
 
