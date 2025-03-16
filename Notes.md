@@ -1,3 +1,43 @@
+The dataset used in this study was created from a collection of scientific articles stored as plain-text (TXT) files. The dataset-building pipeline involved automated text extraction, cleaning, and structuring of article components (abstract and main body) into a format compatible with transformer-based summarization models. Specifically, the process comprised the following steps:
+	1.	Text Extraction and Parsing:
+	•	The script iterates over all text files within a specified directory, reading each file’s content.
+	•	A heuristic regular expression-based approach is employed to identify and extract article abstracts and bodies by recognizing standard headers (e.g., variations of “Abstract”, “Keywords”, “Introduction”). Files without recognizable abstracts are discarded to ensure data consistency and quality.
+	2.	Data Cleaning and Normalization:
+	•	Text data undergoes comprehensive preprocessing, including the removal of unwanted formatting, hyphenated line breaks, redundant whitespace, and non-ASCII characters. This normalization step enhances dataset uniformity and readability, essential for effective model training.
+	3.	Dataset Structuring and Splitting:
+	•	Each cleaned text file yields a structured example consisting of two fields: a summary (abstract) and the corresponding main text body. Metadata such as filenames is also retained for traceability.
+	•	The examples are randomly shuffled and divided into training, validation, and test sets using a standard ratio (70% train, 15% validation, 15% test), ensuring a fair and representative evaluation.
+	4.	Dataset Publication and Accessibility:
+	•	The final structured dataset is saved locally and published to the Hugging Face Hub, facilitating reproducibility and open access for further experimentation within the research community.
+
+Overall, this systematic pipeline ensures the creation of a robust and clean textual dataset tailored specifically for evaluating and fine-tuning automatic summarization methods applied to scientific literature.
+
+The provided Python code implements a comprehensive workflow for automatic text summarization of scientific articles using transformer-based models from Hugging Face. It leverages pre-trained sequence-to-sequence models (specifically mT5-small) and employs the Low-Rank Adaptation (LoRA) technique for efficient fine-tuning. The main functionalities include:
+
+1. **Data Pre-processing:**
+   - Cleans and tokenizes text data, handling large input articles by chunking into manageable segments.
+   - Filters out summaries below a certain length threshold, ensuring data quality.
+
+2. **Model Training and Fine-tuning:**
+   - Utilizes LoRA for parameter-efficient fine-tuning, significantly reducing computational overhead.
+   - Implements conditional logic to check for existing model adapters on Hugging Face Hub, skipping redundant training if applicable.
+   - Allows selective freezing of base model parameters, focusing learning on adapter-specific parameters to enhance efficiency.
+
+3. **Evaluation and Metrics:**
+   - Employs the ROUGE metric to evaluate summarization quality by comparing generated summaries against reference summaries.
+   - Incorporates advanced generation settings such as beam search, temperature scaling, and top-k/top-p sampling to improve summary quality and diversity.
+
+4. **Experimental Workflow:**
+   - Establishes a baseline performance evaluation using a pre-trained model.
+   - Conducts incremental fine-tuning experiments: first training locally, then training with a larger external scientific dataset, followed by fine-tuning this enhanced model locally.
+   - Provides comparative analysis across multiple fine-tuning strategies to highlight model improvements.
+
+The code integrates Hugging Face functionalities seamlessly for model management, evaluation logging (via TensorBoard), and model sharing, promoting reproducibility and collaboration.
+
+
+
+
+
 --- Debug Example 0 ---
 Input (first 300 chars): Empirical Study of PLC Authentication Protocols in Industrial Control Systems Adeen Ayub Department of Computer Science Virginia Commonwealth University Richmond, United States of America ayuba2@vcu.eduHyunguk Yoo Department of Computer Science The University of New Orleans New Orleans, United State
 Predicted Summary: <extra_id_0>-logic systems (PLCs) and PLCs. These systems are controlled by a PLC. The PLC uses a control-logic program (PLC) and the PLC (PLC). In industrial control systems (ICS), the ICS uses an authentication protocol that allows PLC to control the physical process. However, most PLC systems use a software-based software to control physical processes. The software uses the control logic of PLC, PLC is based on the remote control systems. This paper presents an empirical study on
