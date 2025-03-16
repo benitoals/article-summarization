@@ -209,3 +209,4 @@ Thumbs.db
 *.pdf
 *.arrow
 model_lora_temp/
+sources copy/
