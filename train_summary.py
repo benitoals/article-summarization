@@ -253,10 +253,10 @@ def train_lora(base_model, dataset, tokenizer, model_repo_id,
 def main():
     # Define dataset and model repository IDs
     dataset_repo_id = "benitoals/new-txt-dataset"
-    model_name = "google/mt5-xl"
-    local_model_repo_id = "benitoals/xl-lora"
-    hf_model_repo_id = "benitoals/xl-lora-hf"
-    combined_repo_id = "benitoals/xl-lora-local-combined"
+    model_name = "google/mt5-base"
+    local_model_repo_id = "benitoals/base-lora"
+    hf_model_repo_id = "benitoals/base-lora-hf"
+    combined_repo_id = "benitoals/base-lora-local-combined"
 
     # Load tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True, legacy=False)
